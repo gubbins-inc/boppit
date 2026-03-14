@@ -2,6 +2,47 @@
 
 ---
 
+## Steam Deck Debug Session — IN PROGRESS
+
+**Status:** BLOCKED — hub serial communication not working on Steam Deck
+
+### What was confirmed working
+- GUI launches (tkinter via XWayland, `DISPLAY=:0`, run from Konsole)
+- Serial port opens on `/dev/ttyACM1` (REPL interface)
+- Hub code uploads without crash
+- uucp group added for serial access (`sudo usermod -aG uucp deck`, reboot required)
+- Windows version confirmed fully working
+
+### Root cause under investigation
+No serial events received from hub after upload. `HUB_READY` never arrives.
+All game actions result in timeout because hub responses (ACK, EVENT:SUCCESS, EVENT:FAIL) are never read.
+
+### Key finding
+SPIKE Prime exposes two USB CDC devices on Linux:
+- `/dev/ttyACM0` = storage/bootloader (wrong)
+- `/dev/ttyACM1` = Python REPL (correct)
+
+Auto-detection updated to probe for REPL and prefer highest-numbered ACM port.
+
+### Next step — NOT YET EXECUTED
+```bash
+BOPIT_SERIAL_PORT=/dev/ttyACM1 BOPIT_DEBUG=1 python3 main.py
+```
+This will print all serial traffic including upload responses.
+Look for:
+- `[Upload] Paste mode response:` — confirms paste mode entered
+- `[Serial] HUB_READY` — confirms hub code is running
+- `[Serial] WARNING: HUB_READY not received` — confirms upload/execution failure
+- `[SERIAL]` lines during gameplay — confirms PC is receiving hub events
+
+### Possible causes if HUB_READY still not received
+1. Paste mode not entered correctly — check `[Upload]` lines for "paste mode" text
+2. Hub code crashes on execution — look for `ERR:` in debug output
+3. DTR/RTS signal on port open resets hub — try `serial.Serial(..., rts=False, dtr=False)`
+4. Need longer delay after port open before sending interrupt sequence
+
+---
+
 ## M1 — Asset Path Refactor
 
 **Status:** COMPLETE
