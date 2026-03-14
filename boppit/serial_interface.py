@@ -164,27 +164,28 @@ def upload_hub_code(ser: serial.Serial, hub_code: str) -> None:
         """Send a batch, collect echo, return indices of mismatched lines."""
         _send_lines(batch, delay)
 
-        # Wait until we've seen len(batch) occurrences of b"=== " in the echo
-        deadline = time.time() + max(3.0, len(batch) * delay * 4)
+        # Paste mode echoes raw lines (no "=== " between them in batch).
+        # Wait until we've seen at least len(batch) newlines in the echo.
+        deadline = time.time() + max(3.0, len(batch) * delay * 3)
         echo = b""
         while time.time() < deadline:
             echo += ser.read(ser.in_waiting or 1)
-            if echo.count(b"=== ") >= len(batch):
+            if echo.count(b"\n") >= len(batch):
                 break
 
         if debug:
             print(f"[Upload] Echo ({len(echo)}B): {repr(echo)}")
 
-        # Parse: split on "=== ", content precedes each prompt
-        echoed = []
-        for segment in echo.split(b"=== "):
-            content = segment.replace(b"\r\n", b"\n").strip()
-            if content:
-                echoed.append(content.decode("utf-8", errors="replace"))
+        # Split on newlines, strip CR/whitespace, drop blank segments
+        echoed = [
+            seg.decode("utf-8", errors="replace").strip()
+            for seg in echo.split(b"\n")
+            if seg.strip()
+        ]
 
         bad = []
         for i, sent in enumerate(batch):
-            received = echoed[i].strip() if i < len(echoed) else ""
+            received = echoed[i] if i < len(echoed) else ""
             if sent.strip() != received:
                 bad.append(i)
                 if debug:
@@ -197,6 +198,7 @@ def upload_hub_code(ser: serial.Serial, hub_code: str) -> None:
     # ------------------------------------------------------------------
     delay_idx = 0           # current position in _DELAY_LADDER
     retry_from = 0          # first batch index that needs (re)verification
+    buf = b""               # last HUB_READY wait buffer (for debug on failure)
 
     for attempt in range(1, len(_DELAY_LADDER) + 1):
         delay = _DELAY_LADDER[delay_idx]

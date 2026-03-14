@@ -1,0 +1,69 @@
+130)(deck@steamdeck boppit)$ git pull
+remote: Enumerating objects: 11, done.
+remote: Counting objects: 100% (11/11), done.
+remote: Compressing objects: 100% (2/2), done.
+remote: Total 6 (delta 4), reused 6 (delta 4), pack-reused 0 (from 0)
+Unpacking objects: 100% (6/6), 4.94 KiB | 1.23 MiB/s, done.
+From https://github.com/gubbins-inc/boppit
+   61c81ce..6b0d0ca  master     -> origin/master
+Updating 61c81ce..6b0d0ca
+Fast-forward
+ boppit/game.py             | 155 ++++++++++++++++++++++++++++++++++++++----------------
+ boppit/serial_interface.py | 213 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++-------------------
+ main.py                    |   3 +-
+ 3 files changed, 272 insertions(+), 99 deletions(-)
+(deck@steamdeck boppit)$ BOPIT_SERIAL_PORT=/dev/ttyACM1 BOPIT_DEBUG=1 python3 main.py
+pygame 2.6.1 (SDL 2.28.4, Python 3.13.1)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[Serial] Using BOPIT_SERIAL_PORT override: /dev/ttyACM1
+[Serial] Connecting to /dev/ttyACM1 at 115200 baud...
+[Serial] Connected.
+[Upload] Paste mode response: b'\r\npaste mode; Ctrl-C to cancel, Ctrl-D to finish\r\n=== '
+[Serial] Uploading 185 lines (attempt 1, delay 40 ms/line, from batch 0)...
+[Upload] Echo (70B): b'import hub\nfrom hub import light\nimport sys\nimport select\nimport time\n'
+[Upload] Mismatch line 0: sent='import hub' got='import hub\nfrom hub import light\nimport sys\nimport select\nimport time'
+[Upload] Mismatch line 1: sent='from hub import light' got=''
+[Upload] Mismatch line 2: sent='import sys' got=''
+[Upload] Mismatch line 3: sent='import select' got=''
+[Upload] Mismatch line 4: sent='import time' got=''
+[Serial] Batch 0 had 5 bad line(s) — slowing down and retrying from batch 0...
+[Upload] Paste mode response: b'\r\npaste mode; Ctrl-C to cancel, Ctrl-D to finish\r\n=== '
+[Serial] Uploading 185 lines (attempt 2, delay 60 ms/line, from batch 0)...
+[Upload] Echo (70B): b'import hub\nfrom hub import light\nimport sys\nimport select\nimport time\n'
+[Upload] Mismatch line 0: sent='import hub' got='import hub\nfrom hub import light\nimport sys\nimport select\nimport time'
+[Upload] Mismatch line 1: sent='from hub import light' got=''
+[Upload] Mismatch line 2: sent='import sys' got=''
+[Upload] Mismatch line 3: sent='import select' got=''
+[Upload] Mismatch line 4: sent='import time' got=''
+[Serial] Batch 0 had 5 bad line(s) — slowing down and retrying from batch 0...
+[Upload] Paste mode response: b'\r\npaste mode; Ctrl-C to cancel, Ctrl-D to finish\r\n=== '
+[Serial] Uploading 185 lines (attempt 3, delay 100 ms/line, from batch 0)...
+[Upload] Echo (70B): b'import hub\nfrom hub import light\nimport sys\nimport select\nimport time\n'
+[Upload] Mismatch line 0: sent='import hub' got='import hub\nfrom hub import light\nimport sys\nimport select\nimport time'
+[Upload] Mismatch line 1: sent='from hub import light' got=''
+[Upload] Mismatch line 2: sent='import sys' got=''
+[Upload] Mismatch line 3: sent='import select' got=''
+[Upload] Mismatch line 4: sent='import time' got=''
+[Serial] Batch 0 had 5 bad line(s) — slowing down and retrying from batch 0...
+[Upload] Paste mode response: b'\r\npaste mode; Ctrl-C to cancel, Ctrl-D to finish\r\n=== '
+[Serial] Uploading 185 lines (attempt 4, delay 140 ms/line, from batch 0)...
+[Upload] Echo (70B): b'import hub\nfrom hub import light\nimport sys\nimport select\nimport time\n'
+[Upload] Mismatch line 0: sent='import hub' got='import hub\nfrom hub import light\nimport sys\nimport select\nimport time'
+[Upload] Mismatch line 1: sent='from hub import light' got=''
+[Upload] Mismatch line 2: sent='import sys' got=''
+[Upload] Mismatch line 3: sent='import select' got=''
+[Upload] Mismatch line 4: sent='import time' got=''
+[Serial] Batch 0 had 5 bad line(s) — slowing down and retrying from batch 0...
+[Upload] Paste mode response: b'\r\npaste mode; Ctrl-C to cancel, Ctrl-D to finish\r\n=== '
+[Serial] Uploading 185 lines (attempt 5, delay 200 ms/line, from batch 0)...
+[Upload] Echo (70B): b'import hub\nfrom hub import light\nimport sys\nimport select\nimport time\n'
+[Upload] Mismatch line 0: sent='import hub' got='import hub\nfrom hub import light\nimport sys\nimport select\nimport time'
+[Upload] Mismatch line 1: sent='from hub import light' got=''
+[Upload] Mismatch line 2: sent='import sys' got=''
+[Upload] Mismatch line 3: sent='import select' got=''
+[Upload] Mismatch line 4: sent='import time' got=''
+[Serial] Batch 0 had 5 bad line(s) — slowing down and retrying from batch 0...
+[Serial] WARNING: HUB_READY not received after 5 attempts.
+[ERROR] Unexpected error: cannot access local variable 'buf' where it is not associated with a value
+[Serial] Port closed.
+(1)(deck@steamdeck boppit)$
