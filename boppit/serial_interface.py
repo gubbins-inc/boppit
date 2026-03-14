@@ -127,13 +127,11 @@ def upload_hub_code(ser: serial.Serial, hub_code: str) -> None:
         print(f"[Upload] Paste mode response: {repr(resp)}")
 
     print("[Serial] Uploading hub logic...")
-    chunk_size = 128
-    code_bytes = hub_code.encode("utf-8")
-    for i in range(0, len(code_bytes), chunk_size):
-        ser.write(code_bytes[i : i + chunk_size])
-        time.sleep(0.05)
+    for line in hub_code.splitlines():
+        ser.write((line + "\n").encode("utf-8"))
+        time.sleep(0.01)
 
-    time.sleep(0.5)
+    time.sleep(0.2)
     ser.write(b"\x04")
     print("[Serial] Waiting for HUB_READY...")
 
