@@ -15,9 +15,11 @@ _ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
 class VideoPlayer:
-    def __init__(self, video_path, label_widget):
+    def __init__(self, video_path, label_widget, width, height):
         self.video_path = str(video_path)
         self.label = label_widget
+        self.width = width
+        self.height = height
         self.cap = cv2.VideoCapture(self.video_path)
         self.playing = False
         self.running = True
@@ -35,7 +37,7 @@ class VideoPlayer:
             if self.playing and self.cap.isOpened():
                 ret, frame = self.cap.read()
                 if ret:
-                    frame = cv2.resize(frame, (500, 400))
+                    frame = cv2.resize(frame, (self.width, self.height))
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     img = Image.fromarray(frame)
                     imgtk = ImageTk.PhotoImage(image=img)
@@ -102,44 +104,110 @@ class BopItGame:
 
         # Initials entry state
         self._initials = ["A", "A", "A"]
-        self._initial_idx = 0          # which slot (0-2) is being edited
-        self._initial_letter_idx = 0   # index into _ALPHABET for current slot
+        self._initial_idx = 0
+        self._initial_letter_idx = 0
 
+        # ------------------------------------------------------------------
+        # Fullscreen setup
+        # ------------------------------------------------------------------
         self.root.title("SPIKE Prime Bop-It Pro")
-        self.root.geometry("500x450")
+        self.root.configure(bg="black")
+        self.root.attributes("-fullscreen", True)
+        self.root.bind("<Escape>", lambda e: self.root.attributes("-fullscreen", False))
+        self.root.bind("<F11>", lambda e: self.root.attributes(
+            "-fullscreen", not self.root.attributes("-fullscreen")))
+        self.root.update()  # ensure geometry is resolved before reading dimensions
 
-        self.lbl_video = tk.Label(root)
-        self.lbl_video.place(x=0, y=0, width=500, height=450)
+        W = self.root.winfo_screenwidth()
+        H = self.root.winfo_screenheight()
+        self._W = W
+        self._H = H
 
-        self.cv_timer = tk.Canvas(root, width=60, height=60, bg="black", highlightthickness=0)
-        self.cv_timer.place(x=430, y=10)
-        self.visual_timer = VisualTimer(self.cv_timer, 30, 30, 25)
+        # ------------------------------------------------------------------
+        # Scaled constants
+        # ------------------------------------------------------------------
+        fs = min(W, H)
 
-        self.lbl_time_text = tk.Label(root, text="3.00s", font=("Consolas", 10, "bold"), fg="white", bg="black")
-        self.lbl_time_text.place(x=430, y=75, width=60)
+        timer_sz   = max(50, int(fs * 0.08))
+        timer_r    = timer_sz // 2 - 3
+        timer_x    = W - timer_sz - max(8, int(W * 0.01))
+        timer_y    = max(8, int(H * 0.01))
 
-        self.lbl_score = tk.Label(root, text="Score: 0", font=("Arial", 20, "bold"), fg="white", bg="black")
-        self.lbl_score.pack(pady=20)
+        f_score       = ("Arial",    max(14, int(H * 0.030)), "bold")
+        f_instruction = ("Arial",    max(24, int(H * 0.060)), "bold")
+        f_hint        = ("Consolas", max(9,  int(H * 0.016)))
+        f_time        = ("Consolas", max(9,  int(H * 0.016)), "bold")
+        f_status      = ("Consolas", max(8,  int(H * 0.013)))
+        f_highscore   = ("Arial",    max(10, int(H * 0.018)))
+        f_btn         = ("Arial",    max(11, int(H * 0.022)))
 
-        self.lbl_instruction = tk.Label(root, text="Press Start", font=("Arial", 40, "bold"), fg="white", bg="black", wraplength=480)
-        self.lbl_instruction.pack(expand=True)
+        # Button placement (re-used when showing it after game over)
+        self._btn_rely  = 0.75
 
-        self.lbl_initials_hint = tk.Label(root, text="", font=("Consolas", 11), fg="#aaaaaa", bg="black")
-        self.lbl_initials_hint.pack()
+        # ------------------------------------------------------------------
+        # Widgets — all placed absolutely or relatively, no pack()
+        # ------------------------------------------------------------------
 
-        self.btn_start = tk.Button(root, text="START GAME", font=("Arial", 14), command=self.start_game)
-        self.btn_start.pack(pady=20)
+        # Background / video frame (full screen)
+        self.lbl_video = tk.Label(root, bg="black")
+        self.lbl_video.place(x=0, y=0, width=W, height=H)
 
-        self.lbl_status = tk.Label(root, text="Hub Status: Connected", font=("Consolas", 10), fg="white", bg="black")
-        self.lbl_status.pack(side="bottom", anchor="e")
+        # Timer canvas (top-right)
+        self.cv_timer = tk.Canvas(root, width=timer_sz, height=timer_sz,
+                                  bg="black", highlightthickness=0)
+        self.cv_timer.place(x=timer_x, y=timer_y)
+        self.visual_timer = VisualTimer(self.cv_timer,
+                                        timer_sz // 2, timer_sz // 2, timer_r)
 
-        self.lbl_highscore = tk.Label(root, text="High Score: -", font=("Arial", 12), fg="yellow", bg="black")
-        self.lbl_highscore.place(x=10, y=420)
+        # Time-remaining text (below timer)
+        self.lbl_time_text = tk.Label(root, text="3.00s", font=f_time,
+                                      fg="white", bg="black")
+        self.lbl_time_text.place(x=timer_x, y=timer_y + timer_sz + 2,
+                                 width=timer_sz)
 
+        # Score (top-left)
+        self.lbl_score = tk.Label(root, text="Score: 0", font=f_score,
+                                  fg="white", bg="black")
+        self.lbl_score.place(x=int(W * 0.02), y=int(H * 0.02))
+
+        # Main instruction (centre)
+        self.lbl_instruction = tk.Label(root, text="Press Start",
+                                        font=f_instruction,
+                                        fg="white", bg="black",
+                                        wraplength=int(W * 0.85))
+        self.lbl_instruction.place(relx=0.5, rely=0.45, anchor="center")
+
+        # Initials hint (below instruction)
+        self.lbl_initials_hint = tk.Label(root, text="", font=f_hint,
+                                          fg="#aaaaaa", bg="black")
+        self.lbl_initials_hint.place(relx=0.5, rely=0.60, anchor="center")
+
+        # Start button (lower centre)
+        self.btn_start = tk.Button(root, text="START GAME", font=f_btn,
+                                   command=self.start_game)
+        self.btn_start.place(relx=0.5, rely=self._btn_rely, anchor="center")
+
+        # Status (bottom-right)
+        self.lbl_status = tk.Label(root, text="Hub Status: Connected",
+                                   font=f_status, fg="white", bg="black")
+        self.lbl_status.place(relx=1.0, rely=1.0, anchor="se",
+                              x=-max(4, int(W * 0.005)),
+                              y=-max(4, int(H * 0.005)))
+
+        # High score (bottom-left)
+        self.lbl_highscore = tk.Label(root, text="High Score: -",
+                                      font=f_highscore, fg="yellow", bg="black")
+        self.lbl_highscore.place(x=max(4, int(W * 0.01)),
+                                 rely=1.0, anchor="sw",
+                                 y=-max(4, int(H * 0.005)))
+
+        # ------------------------------------------------------------------
+        # Actions image and video player
+        # ------------------------------------------------------------------
         self._actions_photo = None
         self._load_actions_image()
 
-        self.video = VideoPlayer(VIDEO_PATH, self.lbl_video)
+        self.video = VideoPlayer(VIDEO_PATH, self.lbl_video, W, H)
         self.thread = threading.Thread(target=self.serial_listener, daemon=True)
         self.thread.start()
 
@@ -153,7 +221,7 @@ class BopItGame:
     def _load_actions_image(self):
         if ACTIONS_IMAGE_PATH.exists():
             img = Image.open(str(ACTIONS_IMAGE_PATH))
-            img = img.resize((500, 400), Image.LANCZOS)
+            img = img.resize((self._W, self._H), Image.LANCZOS)
             self._actions_photo = ImageTk.PhotoImage(img)
 
     def _show_actions_image(self):
@@ -257,17 +325,17 @@ class BopItGame:
             text="BIP \u2191  BOP \u2193  SHAKE: select  TWIST: done"
         )
         self._update_initials_display()
-        self.send_cmd("SHAKE")  # hub listens for shake; BIP/BOP arrive as FX events
+        self.send_cmd("SHAKE")
 
     def _update_initials_display(self):
         parts = []
         for i, letter in enumerate(self._initials):
             if i < self._initial_idx:
-                parts.append(letter)          # confirmed
+                parts.append(letter)
             elif i == self._initial_idx:
-                parts.append(f"[{letter}]")  # being selected
+                parts.append(f"[{letter}]")
             else:
-                parts.append("_")             # not yet reached
+                parts.append("_")
         self.lbl_instruction.config(text="  ".join(parts), fg="yellow", bg="black")
 
     def _handle_initials_serial(self, line):
@@ -281,14 +349,12 @@ class BopItGame:
                 self.root.after(0, self._initial_submit)
 
         elif line == "EVENT:SUCCESS":
-            # Shake confirmed — if we were in submit-wait mode it's a twist success
             if self._initial_idx >= 3:
                 self.root.after(0, self._initial_submit)
             else:
                 self.root.after(0, self._initial_confirm_letter)
 
         elif line.startswith("EVENT:FAIL"):
-            # Re-arm hub for next input
             if self._initial_idx >= 3:
                 self.send_cmd("TWIST")
             else:
@@ -313,7 +379,6 @@ class BopItGame:
         self._initial_idx += 1
         self._initial_letter_idx = 0
         if self._initial_idx >= 3:
-            # All 3 letters chosen — wait for twist to submit
             self.lbl_initials_hint.config(text="TWIST or UNTWIST to submit")
             self._update_initials_display()
             self.send_cmd("TWIST")
@@ -368,7 +433,7 @@ class BopItGame:
         self.action_history = []
         self.lbl_score.config(text=f"Score: {self.score}")
         self.lbl_initials_hint.config(text="")
-        self.btn_start.pack_forget()
+        self.btn_start.place_forget()
         self.audio.play_ready()
         self.root.after(1500, self.begin_music_and_round)
 
@@ -452,5 +517,5 @@ class BopItGame:
             daemon=True,
         ).start()
 
-        self.btn_start.pack(pady=20)
+        self.btn_start.place(relx=0.5, rely=self._btn_rely, anchor="center")
         self.btn_start.config(text="TRY AGAIN")

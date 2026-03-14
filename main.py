@@ -21,7 +21,8 @@ def main():
     ser = None
     try:
         ser = serial_interface.connect()
-        serial_interface.upload_hub_code(ser, HUB_CODE)
+        if not serial_interface.check_hub_ready(ser):
+            serial_interface.upload_hub_code(ser, HUB_CODE)
 
         root = tk.Tk()
         game = BopItGame(root, ser)
