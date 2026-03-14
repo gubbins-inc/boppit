@@ -101,37 +101,41 @@ def upload_hub_code(ser: serial.Serial, hub_code: str) -> None:
     """Interrupt the hub REPL, upload hub_code, and wait for HUB_READY."""
     debug = bool(os.environ.get("BOPIT_DEBUG"))
 
-    def _read_response(wait: float) -> bytes:
-        time.sleep(wait)
-        data = b""
-        while True:
-            line = ser.readline()
-            if not line:
+    def _read_until_prompt(timeout: float = 3.0) -> bytes:
+        """Read bytes until the paste-mode continuation prompt '=== ' is seen."""
+        deadline = time.time() + timeout
+        buf = b""
+        while time.time() < deadline:
+            chunk = ser.read(ser.in_waiting or 1)
+            buf += chunk
+            if buf.endswith(b"=== "):
                 break
-            data += line
-        if debug and data:
-            print(f"[Upload] << {repr(data)}")
-        return data
+        if debug and buf:
+            print(f"[Upload] << {repr(buf)}")
+        return buf
 
     ser.reset_input_buffer()
     time.sleep(2)
 
     print("[Serial] Interrupting runtime...")
     ser.write(b"\x03\x03")
-    _read_response(0.5)
+    time.sleep(0.5)
+    ser.reset_input_buffer()
 
     print("[Serial] Entering paste mode...")
     ser.write(b"\x05")
-    resp = _read_response(0.5)
-    if resp and debug:
+    resp = _read_until_prompt(timeout=3.0)
+    if debug:
         print(f"[Upload] Paste mode response: {repr(resp)}")
+    if b"paste mode" not in resp:
+        raise RuntimeError("Failed to enter MicroPython paste mode")
 
     print("[Serial] Uploading hub logic...")
     for line in hub_code.splitlines():
         ser.write((line + "\n").encode("utf-8"))
-        time.sleep(0.01)
+        _read_until_prompt(timeout=3.0)  # wait for '=== ' echo before next line
 
-    time.sleep(0.2)
+    time.sleep(0.1)
     ser.write(b"\x04")
     print("[Serial] Waiting for HUB_READY...")
 
