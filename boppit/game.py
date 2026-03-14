@@ -169,32 +169,38 @@ class BopItGame:
     # ------------------------------------------------------------------
 
     def serial_listener(self):
+        import os
+        debug = bool(os.environ.get("BOPIT_DEBUG"))
         while self.running:
             try:
-                if self.ser.in_waiting:
-                    line = self.ser.readline().decode("utf-8", errors="replace").strip()
+                raw = self.ser.readline()
+                if not raw:
+                    continue
+                line = raw.decode("utf-8", errors="replace").strip()
+                if not line:
+                    continue
+                if debug:
+                    print(f"[SERIAL] {repr(line)}")
 
-                    if self.state == "ENTERING_INITIALS":
-                        self._handle_initials_serial(line)
-                        continue
+                if self.state == "ENTERING_INITIALS":
+                    self._handle_initials_serial(line)
+                    continue
 
-                    if line.startswith("FX:"):
-                        action = line.split(":")[1]
-                        self.root.after(0, lambda a=action: self.audio.play_fx(a))
-
-                    elif line == "INPUT:START":
-                        if self.state != "PLAYING" and not self.busy:
-                            self.root.after(0, self.start_game)
-
-                    elif line == "EVENT:SUCCESS":
-                        self.root.after(0, self.handle_success)
-                    elif line.startswith("EVENT:FAIL"):
-                        reason = line.split(":")[2] if len(line.split(":")) > 2 else "FAIL"
-                        self.root.after(0, lambda r=reason: self.handle_fail(r))
-                    elif line.startswith("ACK:"):
-                        print(f"[HUB] {line}")
-                    elif line.startswith("ERR:"):
-                        print(f"[HUB ERROR] {line}")
+                if line.startswith("FX:"):
+                    action = line.split(":")[1]
+                    self.root.after(0, lambda a=action: self.audio.play_fx(a))
+                elif line == "INPUT:START":
+                    if self.state != "PLAYING" and not self.busy:
+                        self.root.after(0, self.start_game)
+                elif line == "EVENT:SUCCESS":
+                    self.root.after(0, self.handle_success)
+                elif line.startswith("EVENT:FAIL"):
+                    reason = line.split(":")[2] if len(line.split(":")) > 2 else "FAIL"
+                    self.root.after(0, lambda r=reason: self.handle_fail(r))
+                elif line.startswith("ACK:"):
+                    print(f"[HUB] {line}")
+                elif line.startswith("ERR:"):
+                    print(f"[HUB ERROR] {line}")
 
             except Exception as e:
                 print(f"Serial Error: {e}")
