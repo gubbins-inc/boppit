@@ -2,44 +2,43 @@
 
 ---
 
-## Steam Deck Debug Session — IN PROGRESS
+## Steam Deck Debug Session — COMPLETE
 
-**Status:** BLOCKED — hub serial communication not working on Steam Deck
+**Status:** ALL ISSUES RESOLVED
 
 ### What was confirmed working
-- GUI launches (tkinter via XWayland, `DISPLAY=:0`, run from Konsole)
 - Serial port opens on `/dev/ttyACM1` (REPL interface)
 - Hub code uploads without crash
 - uucp group added for serial access (`sudo usermod -aG uucp deck`, reboot required)
 - Windows version confirmed fully working
 
-### Root cause under investigation
-No serial events received from hub after upload. `HUB_READY` never arrives.
-All game actions result in timeout because hub responses (ACK, EVENT:SUCCESS, EVENT:FAIL) are never read.
+### Root cause identified and fixed
+Linux `cdc_acm` driver is much faster than Windows COM port driver, overwhelming
+MicroPython paste mode's input buffer. Windows latency was accidentally acting as
+flow control.
 
-### Key finding
-SPIKE Prime exposes two USB CDC devices on Linux:
-- `/dev/ttyACM0` = storage/bootloader (wrong)
-- `/dev/ttyACM1` = Python REPL (correct)
+### Fixes applied
 
-Auto-detection updated to probe for REPL and prefer highest-numbered ACM port.
+**Adaptive batch upload with echo verification (`serial_interface.py`)**
+- Strips blank lines and comments before upload (~185 lines vs ~250)
+- Sends in batches of 5, reads echo back, compares line-by-line (counts `\n`, not `=== `)
+- On mismatch: cancels, re-enters paste mode, replays verified batches, retries at slower delay
+- Delay ladder: 40 → 60 → 100 → 140 → 200 ms/line (escalates on each error)
 
-### Next step — NOT YET EXECUTED
-```bash
-BOPIT_SERIAL_PORT=/dev/ttyACM1 BOPIT_DEBUG=1 python3 main.py
-```
-This will print all serial traffic including upload responses.
-Look for:
-- `[Upload] Paste mode response:` — confirms paste mode entered
-- `[Serial] HUB_READY` — confirms hub code is running
-- `[Serial] WARNING: HUB_READY not received` — confirms upload/execution failure
-- `[SERIAL]` lines during gameplay — confirms PC is receiving hub events
+**Hub ready check (`serial_interface.py` + `main.py`)**
+- `check_hub_ready()` sends `CMD:STOP`, waits 1s for `ACK:STOP`
+- If hub already running, upload is skipped entirely
+- Paste mode code is NOT persistent across hub power cycles
 
-### Possible causes if HUB_READY still not received
-1. Paste mode not entered correctly — check `[Upload]` lines for "paste mode" text
-2. Hub code crashes on execution — look for `ERR:` in debug output
-3. DTR/RTS signal on port open resets hub — try `serial.Serial(..., rts=False, dtr=False)`
-4. Need longer delay after port open before sending interrupt sequence
+**Fullscreen responsive GUI (`game.py`)**
+- Fullscreen via `root.attributes("-fullscreen", True)`, toggle F11/Escape
+- All fonts, positions, timer, video and image scale to `winfo_screenwidth()` / `winfo_screenheight()`
+- All widgets use `place()` exclusively
+
+**Screen blanking prevention (`main.py`)**
+- `org.freedesktop.ScreenSaver.Inhibit` via D-Bus at startup (KDE/Steam Deck)
+- Falls back to `xset s reset` every 30s
+- Inhibit released cleanly on exit
 
 ---
 
@@ -161,3 +160,8 @@ On failure: clear error message printed to stderr. On success: port logged to st
 | Modular structure                 | DONE    |
 | requirements.txt                  | DONE    |
 | README_LINUX.md                   | DONE    |
+| Hub code uploads reliably         | DONE    |
+| Hub ready check (skip upload)     | DONE    |
+| Fullscreen responsive GUI         | DONE    |
+| Screen blanking prevented         | DONE    |
+| **PORT COMPLETE — 2026-03-15**    | ✓       |
