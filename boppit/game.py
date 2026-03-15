@@ -536,6 +536,7 @@ class BopItGame:
         self.audio.start_music()
         self.video.play()
         self._show_action_icons()
+        self._update_action_icons()
         self.next_round()
 
     def next_round(self):
