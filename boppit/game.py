@@ -9,7 +9,7 @@ import pygame
 from PIL import Image, ImageTk
 
 from .audio import AudioManager
-from .config import VIDEO_PATH, HIGHSCORE_FILE, ACTIONS_IMAGE_PATH, ASSET_DIR
+from .config import VIDEO_PATH, HIGHSCORE_FILE, ACTIONS_IMAGE_PATH, ASSET_DIR, DEBUG_START_SCORE
 
 _ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -522,7 +522,7 @@ class BopItGame:
     def start_game(self):
         if self.busy:
             return
-        self.score = 0
+        self.score = DEBUG_START_SCORE
         self.action_history = []
         self.lbl_score.config(text=f"Score: {self.score}")
         self.lbl_initials_hint.config(text="")
