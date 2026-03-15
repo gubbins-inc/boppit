@@ -9,7 +9,7 @@ import pygame
 from PIL import Image, ImageTk
 
 from .audio import AudioManager
-from .config import VIDEO_PATH, HIGHSCORE_FILE, ACTIONS_IMAGE_PATH
+from .config import VIDEO_PATH, HIGHSCORE_FILE, ACTIONS_IMAGE_PATH, ASSET_DIR
 
 _ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -107,6 +107,16 @@ class BopItGame:
         self._initial_idx = 0
         self._initial_letter_idx = 0
 
+        # Action icon panel state
+        self._icon_order = ["bop", "twist", "shake", "bip", "untwist", "leave"]
+        self._icon_thresholds = {
+            "bop": None, "twist": None, "shake": None,
+            "bip": 51, "untwist": 66, "leave": 81,
+        }
+        self._icon_labels = []
+        self._icon_photos_colour = {}
+        self._icon_photos_grey = {}
+
         # ------------------------------------------------------------------
         # Fullscreen setup
         # ------------------------------------------------------------------
@@ -182,6 +192,14 @@ class BopItGame:
                                           fg="#aaaaaa", bg="black")
         self.lbl_initials_hint.place(relx=0.5, rely=0.60, anchor="center")
 
+        # Hub button hint (shown on idle/game-over screens only)
+        self.lbl_hub_hint = tk.Label(
+            root,
+            text="or press L or R button on hub to start",
+            font=f_hint, fg="#888888", bg="black",
+        )
+        self.lbl_hub_hint.place(relx=0.5, rely=0.53, anchor="center")
+
         # Start button (lower centre)
         self.btn_start = tk.Button(root, text="START GAME", font=f_btn,
                                    command=self.start_game)
@@ -206,6 +224,8 @@ class BopItGame:
         # ------------------------------------------------------------------
         self._actions_photo = None
         self._load_actions_image()
+        self._load_action_icons(W, H)
+        self._create_action_icon_widgets(W, H)
 
         self.video = VideoPlayer(VIDEO_PATH, self.lbl_video, W, H)
         self.thread = threading.Thread(target=self.serial_listener, daemon=True)
@@ -231,6 +251,72 @@ class BopItGame:
 
     def _hide_actions_image(self):
         self.lbl_video.configure(image="")
+
+    # ------------------------------------------------------------------
+    # Action icon panel
+    # ------------------------------------------------------------------
+
+    def _load_action_icons(self, W, H):
+        icon_size = int(min(W * 0.09, H * 0.13))
+        self._icon_size = icon_size
+        for name in self._icon_order:
+            colour_path = ASSET_DIR / f"{name}.png"
+            if colour_path.exists():
+                img = Image.open(str(colour_path)).resize(
+                    (icon_size, icon_size), Image.LANCZOS
+                )
+                self._icon_photos_colour[name] = ImageTk.PhotoImage(img)
+            grey_path = ASSET_DIR / f"{name}-grey.png"
+            if grey_path.exists():
+                img = Image.open(str(grey_path)).resize(
+                    (icon_size, icon_size), Image.LANCZOS
+                )
+                self._icon_photos_grey[name] = ImageTk.PhotoImage(img)
+
+    def _create_action_icon_widgets(self, W, H):
+        icon_size = self._icon_size
+        padding = max(4, int(icon_size * 0.1))
+        total_height = 6 * icon_size + 5 * padding
+        start_y = (H - total_height) // 2
+        x = max(8, int(W * 0.01))
+        for i, name in enumerate(self._icon_order):
+            threshold = self._icon_thresholds[name]
+            if threshold is None:
+                photo = self._icon_photos_colour.get(name)
+            else:
+                photo = self._icon_photos_grey.get(
+                    name, self._icon_photos_colour.get(name)
+                )
+            lbl = tk.Label(self.root, image=photo, bg="black", borderwidth=0)
+            lbl.image = photo
+            lbl.place_forget()
+            self._icon_labels.append(lbl)
+
+    def _show_action_icons(self):
+        icon_size = self._icon_size
+        padding = max(4, int(icon_size * 0.1))
+        total_height = 6 * icon_size + 5 * padding
+        start_y = (self._H - total_height) // 2
+        x = int(self._W * 0.05)
+        for i, lbl in enumerate(self._icon_labels):
+            y = start_y + i * (icon_size + padding)
+            lbl.place(x=x, y=y, width=icon_size, height=icon_size)
+
+    def _hide_action_icons(self):
+        for lbl in self._icon_labels:
+            lbl.place_forget()
+
+    def _update_action_icons(self):
+        for name, lbl in zip(self._icon_order, self._icon_labels):
+            threshold = self._icon_thresholds[name]
+            if threshold is None or self.score >= threshold:
+                photo = self._icon_photos_colour.get(name)
+            else:
+                photo = self._icon_photos_grey.get(
+                    name, self._icon_photos_colour.get(name)
+                )
+            lbl.configure(image=photo)
+            lbl.image = photo
 
     # ------------------------------------------------------------------
     # Serial listener
@@ -321,8 +407,14 @@ class BopItGame:
         self._initial_letter_idx = 0
 
         self.lbl_score.config(text=f"NEW RECORD: {self.score}!")
+        self.lbl_hub_hint.place_forget()
+        f_initials_help = ("Arial", max(14, int(self._H * 0.025)))
         self.lbl_initials_hint.config(
-            text="BIP \u2191  BOP \u2193  SHAKE: select  TWIST: done"
+            text=(
+                "BIP IT = next letter \u2191     BOP IT = previous letter \u2193\n"
+                "SHAKE IT = confirm letter     TWIST IT = submit score"
+            ),
+            font=f_initials_help,
         )
         self._update_initials_display()
         self.send_cmd("SHAKE")
@@ -379,7 +471,7 @@ class BopItGame:
         self._initial_idx += 1
         self._initial_letter_idx = 0
         if self._initial_idx >= 3:
-            self.lbl_initials_hint.config(text="TWIST or UNTWIST to submit")
+            self.lbl_initials_hint.config(text="TWIST IT or UNTWIST IT to submit your score")
             self._update_initials_display()
             self.send_cmd("TWIST")
         else:
@@ -396,8 +488,9 @@ class BopItGame:
             json.dump(data, f)
 
         self.update_highscore_display()
-        self.lbl_initials_hint.config(text="")
+        self.lbl_initials_hint.config(text="", font=("Consolas", max(9, int(self._H * 0.016))))
         self.lbl_score.config(text=f"Score: {self.score}")
+        self.lbl_hub_hint.place(relx=0.5, rely=0.53, anchor="center")
         self.state = "GAME_OVER"
         self.busy = False
         self.btn_start.config(state="normal")
@@ -439,8 +532,10 @@ class BopItGame:
 
     def begin_music_and_round(self):
         self._hide_actions_image()
+        self.lbl_hub_hint.place_forget()
         self.audio.start_music()
         self.video.play()
+        self._show_action_icons()
         self.next_round()
 
     def next_round(self):
@@ -471,6 +566,7 @@ class BopItGame:
             self.root.after_cancel(self.timer_id)
         self.score += 1
         self.lbl_score.config(text=f"Score: {self.score}")
+        self._update_action_icons()
         self.lbl_instruction.config(text="GOOD!", fg="#00ff00")
         self.root.after(1000, self.next_round)
 
@@ -504,8 +600,10 @@ class BopItGame:
         if self.timer_id:
             self.root.after_cancel(self.timer_id)
         self.video.pause()
+        self._hide_action_icons()
         self.lbl_instruction.config(text=reason, fg="red", bg="black")
         self._show_actions_image()
+        self.lbl_hub_hint.place(relx=0.5, rely=0.53, anchor="center")
 
         current_high, _ = self.get_highscore_data()
         is_new_record = self.score > current_high

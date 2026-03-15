@@ -147,6 +147,54 @@ On failure: clear error message printed to stderr. On success: port logged to st
 
 ---
 
+---
+
+## Post-Launch Additions — 2026-03-15
+
+### PA1 — Action Icon Panel
+
+**Status:** COMPLETE
+
+**Objective:** Show unlockable action icons in a left-side column during gameplay.
+
+**Tasks**
+- [x] Load bop, twist, shake, bip, untwist, leave PNGs from `boppit_audio_assets/`
+- [x] Load grey variants (bip-grey, untwist-grey, leave-grey) for locked state
+- [x] Create 6 hidden `tk.Label` widgets at init, positioned at `x = W * 0.05`, vertically centred
+- [x] `_show_action_icons()` called in `begin_music_and_round()` — shown only during play
+- [x] `_hide_action_icons()` called in `game_over()` — hidden immediately on game end
+- [x] `_update_action_icons()` called in `handle_success()` — swaps grey → colour at thresholds (BIP: 51, UNTWIST: 66, LEAVE: 81)
+
+---
+
+### PA2 — Initials Entry On-Screen Instructions
+
+**Status:** COMPLETE
+
+**Objective:** Show clear hub-action instructions when a new high score is being entered.
+
+**Tasks**
+- [x] `start_initials_entry()` shows two-line instruction at larger font (H * 0.025):
+  `BIP IT = next letter ↑     BOP IT = previous letter ↓`
+  `SHAKE IT = confirm letter     TWIST IT = submit score`
+- [x] After all 3 letters confirmed, hint updates to: `TWIST IT or UNTWIST IT to submit your score`
+- [x] Font restored to `f_hint` after initials submitted
+
+---
+
+### PA3 — Hub Button Hint on Start Screen
+
+**Status:** COMPLETE
+
+**Objective:** Inform players they can start/restart using the hub's L or R button.
+
+**Tasks**
+- [x] `lbl_hub_hint` label added below "Press Start" (`rely=0.53`): `"or press L or R button on hub to start"`
+- [x] Hidden when play begins (`begin_music_and_round`) and during initials entry
+- [x] Re-shown in `game_over()` and `_initial_submit()`
+
+---
+
 ## Completion Checklist
 
 | Criterion                         | Status  |
